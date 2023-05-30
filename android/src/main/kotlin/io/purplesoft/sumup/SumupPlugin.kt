@@ -227,7 +227,7 @@ class SumupPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, PluginRegis
             SumUpTask.TOKEN_LOGIN -> operations["loginWithToken"]
             SumUpTask.CHECKOUT -> operations["checkout"]
             SumUpTask.SETTINGS -> operations["openSettings"]
-            else -> currentOperation
+            else -> null
         } ?: return false
 
         if (data != null && data.extras != null) {
