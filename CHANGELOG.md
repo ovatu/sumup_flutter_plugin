@@ -1,3 +1,12 @@
+## 0.8.1
+
+* Handle `installments` field null
+
+## 0.8.0
+
+* Upgrade android SDKs
+* Rename wakeUpterminal -> prepareForCheckout (thanks to @gabrielsolomon)
+
 ## 0.7.0
 
 * Upgrade native SDKs
