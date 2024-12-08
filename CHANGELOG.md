@@ -1,3 +1,14 @@
+## 0.11.0
+
+* Android: upgrade native SDK
+* Upgrade dependencies
+
+## 0.10.0
+
+* Upgrade native SDKs
+* Android: fix missing namespace (#58)
+* Upgrade dependencies
+
 ## 0.9.0
 
 * iOS: upgrade native SDK
