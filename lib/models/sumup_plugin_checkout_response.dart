@@ -26,10 +26,10 @@ class SumupPluginCheckoutResponse {
   SumupPluginCheckoutResponse.fromMap(Map<dynamic, dynamic> response) {
     success = response['success'];
     transactionCode = response['transactionCode'];
-    amount = response['amount'];
+    amount = double.tryParse(response['amount'].toString());
     currency = response['currency'];
-    vatAmount = response['vatAmount'];
-    tipAmount = response['tipAmount'];
+    vatAmount = double.tryParse(response['vatAmount'].toString());
+    tipAmount = double.tryParse(response['tipAmount'].toString());
     paymentType = response['paymentType'];
     entryMode = response['entryMode'];
     installments = int.tryParse(response['installments'].toString());
