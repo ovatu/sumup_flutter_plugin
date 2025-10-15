@@ -8,8 +8,8 @@ class SumupPluginMerchantResponse {
   });
 
   SumupPluginMerchantResponse.fromMap(Map<dynamic, dynamic> response) {
-    merchantCode = response['merchantCode'];
-    currencyCode = response['currencyCode'];
+    merchantCode = response['merchantCode']?.toString();
+    currencyCode = response['currencyCode']?.toString();
   }
 
   String? merchantCode;
