@@ -1,3 +1,23 @@
+## 0.14.1
+
+* Android: propagate `affiliateData` in Tap-to-Pay checkout (#68)
+* Android: fix `AffiliateModel` construction (named arguments) (#73)
+
+## 0.14.0
+
+* Add Tap-to-Pay (TTP) support on Android and iOS
+* Add `checkTapToPayAvailability()` and `presentTapToPayActivation()` (iOS) APIs
+* Add `PaymentMethod` enum (`cardReader`, `tapToPay`) to `SumupPaymentRequest`
+* Add `products` field (`List<SumupProduct>`) to `SumupPluginCheckoutResponse` (iOS + Android card reader)
+* Add `merchantCode`, `cardScheme`, and `errors` fields to `SumupPluginCheckoutResponse`
+* Fix iOS: checkout error message was discarded on failed transactions
+* Android: fix blank `foreignTransactionId` causing duplicate-transaction errors
+
+## 0.13.1
+
+* Android: upgrade Kotlin to 2.1.0
+* Upgrade dependencies
+
 ## 0.13.0
 
 * iOS: upgrade native SDK

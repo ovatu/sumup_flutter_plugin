@@ -10,7 +10,13 @@ public class SwiftSumupPlugin: NSObject, FlutterPlugin {
     }
     
     private func topController() -> UIViewController {
-        return UIApplication.shared.keyWindow!.rootViewController!
+        guard let windowScene = UIApplication.shared.connectedScenes
+                .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }),
+              let rootViewController = window.rootViewController else {
+            fatalError("Unable to get root view controller")
+        }
+        return rootViewController
     }
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -60,28 +66,55 @@ public class SwiftSumupPlugin: NSObject, FlutterPlugin {
             pluginResponse.message = ["result": "ok"]
             result(pluginResponse.toDictionary())
             
+        case "checkTapToPayAvailability":
+            SumUpSDK.checkTapToPayAvailability { [weak self] isAvailable, isActivated, error in
+                guard let self = self else { return }
+                let pluginResponse = SumupPluginResponse(methodName: call.method, status: error == nil && isAvailable)
+                if let error = error {
+                    pluginResponse.message = ["isAvailable": false, "isActivated": false, "error": error.localizedDescription]
+                    pluginResponse.status = false
+                } else {
+                    pluginResponse.message = ["isAvailable": isAvailable, "isActivated": isActivated]
+                    pluginResponse.status = isAvailable
+                }
+                result(pluginResponse.toDictionary())
+            }
+
+        case "presentTapToPayActivation":
+            SumUpSDK.presentTapToPayActivation(from: topController(), animated: true) { [weak self] success, error in
+                guard let self = self else { return }
+                let pluginResponse = SumupPluginResponse(methodName: call.method, status: success)
+                pluginResponse.message = ["result": success ? "ok" : (error?.localizedDescription ?? "Activation failed")]
+                result(pluginResponse.toDictionary())
+            }
+
         case "checkout":
             let args = call.arguments as! [String: Any]
             let payment = args["payment"] as! [String: Any]
-            
+            let paymentMethodStr = args["paymentMethod"] as? String ?? "cardReader"
+
             let request = CheckoutRequest(total: NSDecimalNumber(floatLiteral: payment["total"] as! Double), title: payment["title"] as? String, currencyCode: payment["currency"] as! String)
-            
+
+            if paymentMethodStr == "tapToPay" {
+                request.paymentMethod = .tapToPay
+            }
+
             request.foreignTransactionID = payment["foreignTransactionId"] as? String
             request.tipAmount = NSDecimalNumber(floatLiteral: payment["tip"] as! Double)
-            
+
             let cardType = payment["cardType"] as? String
             if cardType != nil {
                 request.processAs = cardType == "credit" ? ProcessAs.credit : ProcessAs.debit
             }
-            
+
             let tipOnCardReader = payment["tipOnCardReader"] as! Bool
             if (tipOnCardReader && isTipOnCardReaderAvailable())
             {
                 request.tipOnCardReaderIfAvailable = tipOnCardReader
             }
-            
+
             request.saleItemsCount = payment["saleItemsCount"] as! UInt
-            
+
             if payment["skipSuccessScreen"] as! Bool {
                 request.skipScreenOptions.update(with: SkipScreenOptions.success)
             }
@@ -89,38 +122,34 @@ public class SwiftSumupPlugin: NSObject, FlutterPlugin {
                 request.skipScreenOptions.update(with: SkipScreenOptions.failed)
             }
 
-            self.checkout(request: request)
-            { (checkoutResult: CheckoutResult) in
-                if checkoutResult.transactionCode == nil {
-                    // bottomsheet was dismissed before starting payment
-                    pluginResponse.message = ["success": false]
+            SumUpSDK.checkout(with: request, from: topController())
+            { (checkoutResult: CheckoutResult?, error: Error?) in
+                let resultCheckout = checkoutResult ?? CheckoutResult()
+                if resultCheckout.transactionCode == nil {
+                    pluginResponse.message = ["success": false, "errors": error?.localizedDescription ?? "Checkout did not complete"]
                     result(pluginResponse.toDictionary())
                     return
                 }
-                
-                pluginResponse.message = ["success": checkoutResult.success,
-                                          "transactionCode": checkoutResult.transactionCode ?? "",
-                                          "amount": checkoutResult.additionalInfo?["amount"] ?? "",
-                                          "currency": checkoutResult.additionalInfo?["currency"] ?? "",
-                                          "vatAmount": checkoutResult.additionalInfo?["vat_amount"] ?? "",
-                                          "tipAmount": checkoutResult.additionalInfo?["tip_amount"] ?? "",
-                                          "paymentType": checkoutResult.additionalInfo?["payment_type"] ?? "",
-                                          "entryMode": checkoutResult.additionalInfo?["entry_mode"] ?? "",
-                                          "installments": checkoutResult.additionalInfo?["installments"] ?? "",
-                                          "products": checkoutResult.additionalInfo?["products"] ?? ""]
-                
-                let resultCard = checkoutResult.additionalInfo?["card"] as? [String: Any?]
-                let cardType = resultCard!["type"]
-                let cardLastDigits = resultCard!["last_4_digits"]
-                
-                if cardType != nil {
-                    pluginResponse.message["cardType"] = cardType!
+
+                pluginResponse.message = ["success": resultCheckout.success,
+                                          "transactionCode": resultCheckout.transactionCode ?? "",
+                                          "amount": resultCheckout.additionalInfo?["amount"] ?? "",
+                                          "currency": resultCheckout.additionalInfo?["currency"] ?? "",
+                                          "vatAmount": resultCheckout.additionalInfo?["vat_amount"] ?? "",
+                                          "tipAmount": resultCheckout.additionalInfo?["tip_amount"] ?? "",
+                                          "paymentType": resultCheckout.additionalInfo?["payment_type"] ?? "",
+                                          "entryMode": resultCheckout.additionalInfo?["entry_mode"] ?? "",
+                                          "installments": resultCheckout.additionalInfo?["installments"] ?? "",
+                                          "products": resultCheckout.additionalInfo?["products"] ?? ""]
+
+                let resultCard = resultCheckout.additionalInfo?["card"] as? [String: Any?]
+                if let ct = resultCard?["type"] {
+                    pluginResponse.message["cardType"] = ct
                 }
-                
-                if cardLastDigits != nil {
-                    pluginResponse.message["cardLastDigits"] = cardLastDigits!
+                if let last4 = resultCard?["last_4_digits"] {
+                    pluginResponse.message["cardLastDigits"] = last4
                 }
-                
+
                 result(pluginResponse.toDictionary())
             }
             

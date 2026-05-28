@@ -1,7 +1,25 @@
 allprojects {
     repositories {
-        mavenCentral()
         google()
+        mavenCentral()
+        maven {
+            url 'https://maven.sumup.com/releases'
+            content {
+                includeGroupByRegex 'com\\.sumup.*'
+                includeGroup 'net.sf.smc'
+            }
+        }
+        maven {
+            url = uri('https://tap-to-pay-sdk.fleet.live.sumup.net/')
+            content {
+                includeGroupByRegex 'com\\.sumup.*'
+                includeGroup 'ca.amadis.agnos'
+            }
+            credentials {
+                username = project.findProperty('SUMUP_TTP_MAVEN_USERNAME')?.toString() ?: ""
+                password = project.findProperty('SUMUP_TTP_MAVEN_PASSWORD')?.toString() ?: ""
+            }
+        }
     }
 }
 

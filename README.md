@@ -2,10 +2,7 @@
 
 [![pub package](https://img.shields.io/pub/v/sumup.svg)](https://pub.dev/packages/sumup) [![likes](https://img.shields.io/pub/likes/sumup?logo=dart)](https://pub.dev/packages/sumup/score) [![popularity](https://img.shields.io/pub/dm/sumup?logo=dart)](https://pub.dev/packages/sumup/score)  [![pub points](https://img.shields.io/pub/points/sumup?logo=dart)](https://pub.dev/packages/sumup/score)
 
-A Flutter wrapper to use the SumUp SDK.
-
-With this plugin, your app can easily connect to a SumUp terminal,
-login and accept card payments on Android and iOS.
+A Flutter plugin for the SumUp SDK. Supports card reader and Tap-to-Pay payments on Android and iOS.
 
 ## Partner Links
 
@@ -53,11 +50,11 @@ Support this project by purchasing SumUp terminals through our affiliate links f
 
 ## Prerequisites
 
-1) Registered for a merchant account via SumUp's [country websites](https://sumup.it/purplesoft) (or received a test account).
-2) Received SumUp card terminal: Solo, Air, Air Lite, PIN+ terminal, Chip & Signature reader, or SumUp Air Register.
-3) Requested an Affiliate (Access) Key and registered your application ID via [SumUp Dashboard](https://me.sumup.com/developers) for Developers.
-4) Deployment Target iOS 15.0 or higher.
-5) Android minSdkVersion 26 or higher.
+1. Registered for a merchant account via SumUp's [country websites](https://sumup.it/purplesoft) (or received a test account).
+2. Received a SumUp card terminal: Solo, Air, Air Lite, PIN+ terminal, Chip & Signature reader, or SumUp Air Register.
+3. Requested an Affiliate (Access) Key and registered your application ID via the [SumUp Dashboard](https://me.sumup.com/developers).
+4. iOS deployment target 16.0+ (16.4+ for Tap-to-Pay).
+5. Android minSdkVersion 26+ (30+ for Tap-to-Pay).
 
 ## Installing
 
@@ -76,52 +73,41 @@ import 'package:sumup/sumup.dart';
 
 ## Getting Started
 
-Init SumUp SDK:
-
 ```dart
-Sumup.init(affiliateKey);
-```
+// 1. Initialise the SDK with your Affiliate Key
+await Sumup.init(affiliateKey);
 
-Login:
+// 2. Log in — either interactively or with an OAuth token
+await Sumup.login();
+// or
+await Sumup.loginWithToken(token);
 
-```dart
-Sumup.login();
-```
+// 3. (Optional) Ask the user to pick / configure a card reader
+await Sumup.openSettings();
 
-Or login with token:
+// 4. Optionally warm up the reader before checkout
+await Sumup.prepareForCheckout();
 
-```dart
-Sumup.loginWithToken(token);
-```
-
-Choose your preferred terminal:
-
-```dart
-Sumup.openSettings();
-```
-
-Prepare terminal for checkout:
-
-```dart
-Sumup.prepareForCheckout();
-```
-
-Complete a transaction:
-
-```dart
+// 5. Run a checkout
 var payment = SumupPayment(
-    title: 'Test payment',
-    total: 1.2,
+    title: 'Coffee',
+    total: 3.50,
     currency: 'EUR',
-    foreignTransactionID: '',
-    saleItemsCount: 0,
+    foreignTransactionId: '', // leave empty to auto-generate a unique ID
+    saleItemsCount: 1,
     skipSuccessScreen: false,
-    tip: .0,
+    tip: 0.0,
 );
 
-var request = SumupPaymentRequest(payment);
-
-Sumup.checkout(request);
+var checkout = await Sumup.checkout(SumupPaymentRequest(payment));
+// checkout.success          — bool
+// checkout.transactionCode  — String
+// checkout.amount           — double (not available on Android Tap-to-Pay)
+// checkout.currency         — String (not available on Android Tap-to-Pay)
+// checkout.products         — List<SumupProduct>; iOS and Android card reader only
+// checkout.merchantCode     — String; Android Tap-to-Pay only
+// checkout.cardScheme       — String; Android Tap-to-Pay only
+// checkout.errors           — String; non-null when success is false
 ```
 
 ## Available APIs
@@ -130,25 +116,66 @@ Sumup.checkout(request);
 Sumup.init(affiliateKey);
 
 Sumup.login();
+Sumup.loginWithToken(token);
 
 Sumup.isLoggedIn;
-
 Sumup.merchant;
 
 Sumup.openSettings();
-
 Sumup.prepareForCheckout();
-
 Sumup.isTipOnCardReaderAvailable;
+Sumup.isCardTypeRequired;       // iOS only
+Sumup.isCheckoutInProgress;     // iOS only
 
-// iOS only
-Sumup.isCardTypeRequired;
+// Card reader checkout
+Sumup.checkout(SumupPaymentRequest(payment));
 
-Sumup.checkout(request);
+// Tap-to-Pay checkout
+Sumup.checkout(SumupPaymentRequest(payment, paymentMethod: PaymentMethod.tapToPay));
+Sumup.checkTapToPayAvailability();  // → TapToPayAvailabilityResult
+Sumup.presentTapToPayActivation();  // iOS only; no-op on Android
 
 Sumup.logout();
-
-// iOS only
-Sumup.isCheckoutInProgress;
-
 ```
+
+## Tap-to-Pay (TTP)
+
+Accept contactless payments directly on compatible smartphones, without any additional hardware.
+
+### iOS
+
+**Requirements:**
+- iPhone XS or later, iOS 16.4+
+- Entitlement `com.apple.developer.proximity-reader.payment.acceptance` added to your project (requires approval from Apple)
+- See [Apple's HIG for Tap to Pay on iPhone](https://developer.apple.com/design/human-interface-guidelines/tap-to-pay-on-iphone)
+
+**Setup:**
+1. Log in with `Sumup.login()` or `Sumup.loginWithToken()`.
+2. Call `Sumup.checkTapToPayAvailability()`. If `isActivated` is `false`, call `Sumup.presentTapToPayActivation()` to run the one-time activation flow.
+3. Use `PaymentMethod.tapToPay` in your request:
+   ```dart
+   var request = SumupPaymentRequest(payment, paymentMethod: PaymentMethod.tapToPay);
+   var checkout = await Sumup.checkout(request);
+   ```
+
+### Android
+
+**Requirements:**
+- NFC-enabled physical device, Android 11 (API 30)+
+- The TTP SDK is distributed via a private SumUp Maven repository — contact `integration@sumup.com` to get credentials, then add them to your `gradle.properties`:
+  ```
+  SUMUP_TTP_MAVEN_USERNAME=...
+  SUMUP_TTP_MAVEN_PASSWORD=...
+  ```
+- Add the `utopia-sdk` dependency to your app's `build.gradle` (same version used by the plugin) and configure the Maven repository. See `example/android/` for a full working setup.
+- TTP **requires a release build**: the SDK performs device attestation and will refuse to run if USB Debugging or Developer Options are enabled.
+
+**Usage:**
+1. You must use `Sumup.loginWithToken(accessToken)` — token login is required for the TTP SDK to authenticate in the background.
+2. Use `PaymentMethod.tapToPay` in your request:
+   ```dart
+   var request = SumupPaymentRequest(payment, paymentMethod: PaymentMethod.tapToPay);
+   var checkout = await Sumup.checkout(request);
+   ```
+
+> **Note:** The Android TTP SDK does not return `amount` or `currency` in the transaction result. If you need them, query the [SumUp Transactions API](https://developer.sumup.com/api/transactions/get) using `checkout.transactionCode` or `checkout.foreignTransactionId`.

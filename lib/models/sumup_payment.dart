@@ -80,3 +80,9 @@ enum CardType {
   debit,
   credit,
 }
+
+/// Payment method for checkout: card reader (hardware) or Tap-to-Pay (device NFC).
+enum PaymentMethod {
+  cardReader,
+  tapToPay,
+}

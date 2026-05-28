@@ -6,12 +6,15 @@ import 'models/sumup_payment_request.dart';
 import 'models/sumup_plugin_checkout_response.dart';
 import 'models/sumup_plugin_merchant_response.dart';
 import 'models/sumup_plugin_response.dart';
+import 'models/tap_to_pay_availability.dart';
 
 export 'models/sumup_payment.dart';
 export 'models/sumup_payment_request.dart';
 export 'models/sumup_plugin_checkout_response.dart';
 export 'models/sumup_plugin_merchant_response.dart';
 export 'models/sumup_plugin_response.dart';
+export 'models/sumup_product.dart';
+export 'models/tap_to_pay_availability.dart';
 
 class Sumup {
   Sumup._();
@@ -139,6 +142,30 @@ class Sumup {
     await _throwIfNotLoggedIn();
     final method = await _channel.invokeMethod('isCardTypeRequired');
     return SumupPluginResponse.fromMap(method).status;
+  }
+
+  /// Checks whether Tap-to-Pay is available for the current merchant and whether it is activated.
+  /// On iOS: uses SumUp SDK; on Android: reflects TTP SDK init state and device capability.
+  ///
+  /// Login required.
+  static Future<TapToPayAvailabilityResult> checkTapToPayAvailability() async {
+    _throwIfNotInitialized();
+    await _throwIfNotLoggedIn();
+    final method = await _channel.invokeMethod('checkTapToPayAvailability');
+    final response = SumupPluginResponse.fromMap(method);
+    final message = response.message ?? <String, dynamic>{};
+    return TapToPayAvailabilityResult.fromMap(Map<dynamic, dynamic>.from(message));
+  }
+
+  /// Presents Tap-to-Pay activation UI (iOS only). On Android this completes successfully with no UI.
+  /// Call after [checkTapToPayAvailability] if [TapToPayAvailabilityResult.isActivated] is false.
+  ///
+  /// Login required.
+  static Future<SumupPluginResponse> presentTapToPayActivation() async {
+    _throwIfNotInitialized();
+    await _throwIfNotLoggedIn();
+    final method = await _channel.invokeMethod('presentTapToPayActivation');
+    return SumupPluginResponse.fromMap(method);
   }
 
   /// Starts a checkout process with [paymentRequest].
