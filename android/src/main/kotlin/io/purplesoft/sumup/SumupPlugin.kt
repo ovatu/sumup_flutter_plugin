@@ -328,7 +328,8 @@ enum class SumUpTask(val code: Int) {
 }
 
 fun TransactionInfo.toMap(): Map<String, Any?> {
-    val card = card.toMap()
+    // Card is absent when checkout fails before a card is read.
+    val card = card?.toMap() ?: emptyMap()
     val m = mutableMapOf(
             "transactionCode" to transactionCode,
             "amount" to amount,
